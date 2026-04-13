@@ -378,6 +378,30 @@ app.get('/api/admin/transactions', isAdmin, async (req, res) => {
     }
 });
 
+// Download Transactions CSV (Admin Only)
+app.get('/api/admin/transactions/download', isAdmin, async (req, res) => {
+    try {
+        const donations = await Donation.find().sort({ timestamp: -1 });
+        
+        // CSV Headers
+        let csv = 'Date,Name,Email,Phone,Amount,Status,Payment ID,Address\n';
+        
+        // Add data rows
+        donations.forEach(d => {
+            const date = new Date(d.timestamp).toLocaleDateString('en-IN');
+            const addr = d.address ? `"${d.address.line}, ${d.address.city}, ${d.address.state} - ${d.address.pincode}, ${d.address.country}"` : 'N/A';
+            csv += `${date},"${d.name}","${d.email}",${d.phone},${d.amount},${d.status},"${d.paymentId || 'Local'}",${addr}\n`;
+        });
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=avanarul_transactions.csv');
+        res.status(200).send(csv);
+    } catch (error) {
+        console.error('Download error:', error);
+        res.status(500).json({ message: 'Error generating download.' });
+    }
+});
+
 // Add New Project (Admin Only, Multi-image)
 app.post('/api/admin/projects', isAdmin, upload.array('images', 10), async (req, res) => {
     try {
