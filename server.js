@@ -483,11 +483,21 @@ app.get('/api/projects/:id', async (req, res) => {
 
 // --- SLIDESHOW ROUTES --- //
 
-// Public: Get all slides
+// Public: Get all slides (returns absolute image URLs for uploaded files)
 app.get('/api/slideshow', async (req, res) => {
     try {
         const slides = await Slideshow.find().sort({ slideId: 1 });
-        res.status(200).json(slides);
+        // Return slides as plain objects so we can safely modify image URLs
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const slidesWithFullUrls = slides.map(s => {
+            const obj = s.toObject();
+            // If image is a relative path (starts with /), prepend the backend base URL
+            if (obj.image && obj.image.startsWith('/uploads/')) {
+                obj.image = baseUrl + obj.image;
+            }
+            return obj;
+        });
+        res.status(200).json(slidesWithFullUrls);
     } catch (error) {
         res.status(500).json({ message: 'Error fetching slideshow.' });
     }
@@ -501,7 +511,9 @@ app.put('/api/admin/slideshow/:id', isAdmin, upload.single('image'), async (req,
         
         const updateData = { title, subtitle, btn1Text, btn1Link, btn2Text, btn2Link };
         if (req.file) {
-            updateData.image = `/uploads/${req.file.filename}`;
+            // Store the full absolute URL so it works correctly everywhere
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            updateData.image = `${baseUrl}/uploads/${req.file.filename}`;
         }
 
         const slide = await Slideshow.findOneAndUpdate(
@@ -517,6 +529,19 @@ app.put('/api/admin/slideshow/:id', isAdmin, upload.single('image'), async (req,
     }
 });
 
+// Admin: Force-reset slideshow to defaults
+app.post('/api/admin/slideshow/reset', isAdmin, async (req, res) => {
+    try {
+        await Slideshow.deleteMany({});
+        await initSlideshow();
+        const slides = await Slideshow.find().sort({ slideId: 1 });
+        res.status(200).json({ message: 'Slideshow reset to defaults successfully!', slides });
+    } catch (error) {
+        console.error('Slideshow reset error:', error);
+        res.status(500).json({ message: 'Error resetting slideshow.' });
+    }
+});
+
 // Initialize default slideshow data
 async function initSlideshow() {
     try {
@@ -525,7 +550,9 @@ async function initSlideshow() {
             const defaults = [
                 {
                     slideId: 1,
-                    image: '/temple-slideshow-v2.jpg',
+                    // Using a reliable Unsplash temple image as the default.
+                    // The admin can replace this via the Slide Intelligence panel.
+                    image: 'https://images.unsplash.com/photo-1599930113854-d6d7fd521f10?auto=format&fit=crop&w=1920&q=80',
                     title: 'Renovating and Preserving Hindu Temples',
                     btn1Text: 'Our Mission',
                     btn1Link: '#mission',
@@ -553,6 +580,18 @@ async function initSlideshow() {
             ];
             await Slideshow.insertMany(defaults);
             console.log('✅ Default slideshow data initialized.');
+        } else {
+            // Fix any existing slides that have broken relative paths (e.g. /temple-slideshow-v2.jpg)
+            // Replace them with a valid Unsplash URL so images don't break after refresh
+            const brokenSlide = await Slideshow.findOne({
+                slideId: 1,
+                image: { $not: /^https?:\/\// }
+            });
+            if (brokenSlide && !brokenSlide.image.startsWith('/uploads/')) {
+                brokenSlide.image = 'https://images.unsplash.com/photo-1599930113854-d6d7fd521f10?auto=format&fit=crop&w=1920&q=80';
+                await brokenSlide.save();
+                console.log('✅ Fixed broken slide 1 image path.');
+            }
         }
     } catch (err) {
         console.error('Error initializing slideshow:', err);
