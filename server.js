@@ -18,6 +18,7 @@ const Project = require('./models/Project');
 const Slideshow = require('./models/Slideshow');
 
 const app = express();
+app.set('trust proxy', 1); // Trust proxy to fix mixed-content HTTP/HTTPS urls
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.SECRET_KEY || 'super_secret_avanarul_key_123';
 
