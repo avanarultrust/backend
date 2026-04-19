@@ -20,7 +20,12 @@ const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.SECRET_KEY || 'super_secret_avanarul_key_123';
 
 app.use(cors({
-  origin: ["https://avanarul.org"]
+  origin: [
+    "https://avanarul.org",
+    "https://www.avanarul.org"
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
 }));
 
 /** First origin for password-reset links in emails. */
