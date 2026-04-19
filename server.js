@@ -8,6 +8,8 @@ const cors = require('cors');
 const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
+const { v2: cloudinary } = require('cloudinary');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const { OAuth2Client } = require('google-auth-library');
 const connectDB = require('./db');
 const User = require('./models/User');
@@ -44,18 +46,20 @@ connectDB();
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID_HERE';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
+// Cloudinary Configuration
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 // Multer Storage Configuration
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const dir = './uploads';
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir);
-        }
-        cb(null, dir);
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname);
-    }
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'avanarul_trust',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp']
+  }
 });
 const upload = multer({ storage: storage });
 
@@ -406,7 +410,7 @@ app.get('/api/admin/transactions/download', isAdmin, async (req, res) => {
 app.post('/api/admin/projects', isAdmin, upload.array('images', 10), async (req, res) => {
     try {
         const { title, description } = req.body;
-        const imagePaths = req.files.map(file => `/uploads/${file.filename}`);
+        const imagePaths = req.files.map(file => file.path); // Cloudinary URL
 
         const project = new Project({
             title,
@@ -445,13 +449,8 @@ app.delete('/api/admin/projects/:id', isAdmin, async (req, res) => {
         const project = await Project.findByIdAndDelete(req.params.id);
         if (!project) return res.status(404).json({ message: 'Project not found.' });
 
-        // Clean up uploaded images from disk
-        project.images.forEach(imgPath => {
-            const fullPath = path.join(__dirname, imgPath);
-            if (fs.existsSync(fullPath)) {
-                fs.unlinkSync(fullPath);
-            }
-        });
+        // Note: Images are hosted on Cloudinary. Could be deleted via API if needed, 
+        // but not strictly necessary for this implementation.
 
         res.status(200).json({ message: 'Project deleted successfully!' });
     } catch (error) {
@@ -511,9 +510,7 @@ app.put('/api/admin/slideshow/:id', isAdmin, upload.single('image'), async (req,
         
         const updateData = { title, subtitle, btn1Text, btn1Link, btn2Text, btn2Link };
         if (req.file) {
-            // Store the full absolute URL so it works correctly everywhere
-            const baseUrl = `${req.protocol}://${req.get('host')}`;
-            updateData.image = `${baseUrl}/uploads/${req.file.filename}`;
+            updateData.image = req.file.path; // Cloudinary URL
         }
 
         const slide = await Slideshow.findOneAndUpdate(
