@@ -336,14 +336,15 @@ app.get('/api/verify', async (req, res) => {
 
 app.post('/api/donate', async (req, res) => {
     try {
-        const { amount, donorName, donorEmail, donorPhone, address, donorId } = req.body;
+        const { amount, donorName, donorEmail, donorPhone, address, donorId, utr } = req.body;
         const donation = new Donation({
             donor: donorId === 'admin' ? null : (donorId || null),
             amount: parseFloat(amount),
             name: donorName,
             email: donorEmail,
             phone: donorPhone,
-            address: address
+            address: address,
+            paymentId: utr
         });
         await donation.save();
         res.status(201).json({ message: 'Donation recorded!', donationId: donation._id });
