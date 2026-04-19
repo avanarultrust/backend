@@ -356,6 +356,18 @@ app.get('/api/user/donations', async (req, res) => {
 
 // --- ADMIN SPECIFIC ROUTES --- //
 
+// Delete Transaction (Admin Only)
+app.delete('/api/admin/transactions/:id', isAdmin, async (req, res) => {
+    try {
+        const donation = await Donation.findByIdAndDelete(req.params.id);
+        if (!donation) return res.status(404).json({ message: 'Transaction not found.' });
+        res.status(200).json({ message: 'Transaction deleted successfully.' });
+    } catch (error) {
+        console.error('Delete transaction error:', error);
+        res.status(500).json({ message: 'Error deleting transaction.' });
+    }
+});
+
 // Get ALL Transactions (Admin Only)
 app.get('/api/admin/transactions', isAdmin, async (req, res) => {
     try {
