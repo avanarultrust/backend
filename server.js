@@ -19,31 +19,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.SECRET_KEY || 'super_secret_avanarul_key_123';
 
-const allowedOrigins = [
-  "https://avanarul.org",
-  "https://www.avanarul.org",
-  "http://localhost:5173",
-  "http://localhost:5174"
-];
-
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    } else {
-      console.log("Blocked by CORS:", origin);
-      return callback(new Error("Not allowed by CORS"));
-    }
-  },
-  methods: ["GET", "POST", "PUT", "DELETE"],
-  credentials: true
+  origin: ["https://avanarul.org"]
 }));
 
 /** First origin for password-reset links in emails. */
 function getPrimaryFrontendBase() {
-    return (process.env.FRONTEND_URL || allowedOrigins[0]).replace(/\/$/, '');
+    return (process.env.FRONTEND_URL || "https://avanarul.org").replace(/\/$/, '');
 }
 
 // Admin Credentials
